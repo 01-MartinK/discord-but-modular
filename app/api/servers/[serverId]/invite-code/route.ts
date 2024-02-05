@@ -1,37 +1,63 @@
-import { NextResponse } from "next/server";
-import { v4 as uuidv4 } from "uuid";
+import { redirectToSignIn } from "@clerk/nextjs";
+import { redirect } from "next/navigation";
 
-import { currentProfile } from "@/lib/current-profile";
 import { db } from "@/lib/db";
+import { currentProfile } from "@/lib/current-profile";
 
-export async function PATCH(
-  req: Request,
-  { params }: { params: { serverId: string } }
-) {
-  try {
-    const profile = await currentProfile();
+interface InviteCodePageProps {
+  params: {
+    inviteCode: string;
+  };
+};
 
-    if (!profile) {
-      return new NextResponse("Unauthorized", { status: 401 });
-    };
+const InviteCodePage = async ({
+  params
+}: InviteCodePageProps) => {
+  const profile = await currentProfile();
 
-    if (!params.serverId) {
-      return new NextResponse("Server ID Missing", { status: 401 });
-    };
-
-    const server = await db.server.update({
-      where: {
-        id: params.serverId,
-        profileId: profile.id,
-      },
-      data: {
-        inviteCode: uuidv4(),
-      },
-    });
-
-    return NextResponse.json(server);
-  } catch(error) {
-    console.log("[SERVER_ID]", error);
-    return new NextResponse("Internal Error", { status: 500 });
+  if (!profile) {
+    return redirectToSignIn();
   }
+
+  if (!params.inviteCode) {
+    return redirect("/");
+  }
+
+  const existingServer = await db.server.findFirst({
+    where: {
+      inviteCode: params.inviteCode,
+      members: {
+        some: {
+          profileId: profile.id
+        }
+      }
+    }
+  });
+
+  if (existingServer) {
+    return redirect(`/servers/${existingServer.id}`);
+  }
+
+  const server = await db.server.update({
+    where: {
+      inviteCode: params.inviteCode,
+    },
+    data: {
+      members: {
+        create: [
+          {
+            profileId: profile.id,
+          }
+        ]
+      }
+    }
+  });
+
+  if (server) {
+    return redirect(`/servers/${server.id}`);
+  }
+  
+  return null;
 }
+ 
+export default InviteCodePage;
