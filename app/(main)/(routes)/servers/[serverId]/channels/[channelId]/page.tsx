@@ -1,4 +1,4 @@
-import ChatHeader from "@/components/chat/chat-header";
+import { ChatHeader } from "@/components/chat/chat-header";
 import { ChatInput } from "@/components/chat/chat-input";
 import { ChatMessages } from "@/components/chat/chat-messages";
 import { MediaRoom } from "@/components/media-room";
